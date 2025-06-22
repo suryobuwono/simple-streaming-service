@@ -1,92 +1,189 @@
+from tabulate import tabulate
+
+
 class User:
 
-  plans_data = {
+    service_database = {
         "Basic Plan": [True, True, True, False, False, 1, "3rd party Movie only", 120_000],
         "Standard Plan": [True, True, True, True, False, 2, "Basic Plan Content + Sports", 160_000],
         "Premium Plan": [True, True, True, True, True, 4, "Basic Plan + Standard Plan + PacFlix Original Series", 200_000],
-        "Services": ["Bisa Stream", "Bisa Download", "Kualitas SD", "Kualitas HD", "Kualitas UHD", "Number of Devices", "Jenis Konten", "Harga"]
+        "Services": ["Can Stream", "Can Download", "SD Quality", "HD Quality", "UHD Quality", "Number of Devices", "Content Type", "Price"]
     }
 
-  def __init__(self, username, duration_plan, current_plan):
-    self.username = username
-    self.duration_plan = duration_plan
-    self.current_plan = current_plan
-
-  def check_benefit(self):
-    all_plans_table = tabulate(User.plans_data, headers="keys")
-    print(all_plans_table)
-
-  def check_plan(self, username):
-    print(self.current_plan)
-    print(f"{self.duration_plan} Bulan")
-    print(" ")
-
-    check_plan = User.plans_data.copy()
-
-    for key, index in User.plans_data.items():
-      if key not in [self.current_plan, "Services"]:
-        check_plan.pop(key)
-    current_plan_table = tabulate(check_plan, headers="keys")
-    print(current_plan_table)
-
-  def upgrade_plan(self, username, new_plan):
-    diskon = 0
-    grading = {
-        "Basic Plan": 0,
-        "Standard Plan": 1,
-        "Premium Plan": 2
-    }
-
-    if username not in self.username:
-      raise NameError("Anda salah memasukkan username")
-
-    if new_plan not in grading.keys():
-      raise NameError("New Plan yang bisa Anda pilih hanya 'Standard Plan' atau 'Premium Plan'")
-
-    if grading[new_plan] <= grading[self.current_plan]:
-      raise TypeError(f"Plan saat ini: {self.current_plan}. Anda hanya boleh upgrade ke plan yang lebih tinggi")
-
-    else:
-      if self.duration_plan > 12:
-        diskon = 0.05 * User.plans_data[new_plan][-1]
-      else:
-        diskon = 0 * User.plans_data[new_plan][-1]
-
-    return User.plans_data[new_plan][-1] - diskon
+    def __init__(self, username):
+        self.username = username
 
 
-class NewUser:
+    def check_benefit(self):
+        """Display a table of all available PacFlix plans."""
+        services_table = tabulate(User.service_database, headers="keys")
+        print("PacFlix Plan List")
+        print(" ")
+        print(services_table)
 
-  existing_user = {
-    "Shandy": ["Basic Plan", 12, "shandy-2134"],
-    "Cahya": ["Standard Plan", 24, "cahya-abcd"],
-    "Ana": ["Premium Plan", 5, "ana-2f9g"],
-    "Bagus": ["Basic Plan", 11, "bagus-9f92"]
-  }
-  def __init__(self, username):
-    self.username = username
 
-  def check_benefit(self):
-    return User.check_benefit(self)
+class ExistingUser(User):
 
-  def pick_plan(self, new_plan, referral_code="No ref"):
-    diskon = 0
-    valid_referral = []
+    def __init__(self, username, duration_plan, current_plan):
+        super().__init__(username)
 
-    for key, record in NewUser.existing_user.items():
-      valid_referral.append(record[-1])
+        # Ensure duration input is not negative
+        if duration_plan < 0:
+            raise ValueError("Invalid duration. Duration cannot be negative.")
+        self.duration_plan = duration_plan
 
-    if new_plan not in User.plans_data.keys():
-      raise NameError("Silakan memilih di antara: 'Basic Plan', 'Standard Plan' atau 'Premium Plan'")
+        # Ensure current_plan is available in service_database
+        if current_plan not in [key for key in User.service_database.keys() if key != "Services"]:
+            raise TypeError(f"{current_plan} is not listed in our database. Please choose 'Basic Plan', 'Standard Plan', or 'Premium Plan'.")
+        self.current_plan = current_plan
 
-    if referral_code == "No ref":
-      diskon = 0 * User.plans_data[new_plan][-1]
 
-    else:
-      if referral_code not in valid_referral:
-        raise NameError("Referral code doesn't exist. Just leave it empty if you don't have one")
-      else:
-        print("Referral code exist")
-        diskon = 0.04 * User.plans_data[new_plan][-1]
+    def check_plan(self):
+        """Display the current plan details."""
+        if self.duration_plan == 0:
+            print(f"Currently, you are subscribed to {self.current_plan}.")
+        else:
+            print(f"You have been subscribed to {self.current_plan} for {self.duration_plan} months.")
 
-    return User.plans_data[new_plan][-1] - diskon
+        print(f" ")
+
+        check_plan = User.service_database.copy()
+        for plan, value in User.service_database.items():
+            if plan not in [self.current_plan, "Services"]:
+                check_plan.pop(plan)
+        check_plan_table = tabulate(check_plan, headers="keys")
+        print(check_plan_table)
+
+
+    def upgrade_plan(self, new_plan):
+        """
+        Calculate the total cost of upgrading the subscription.
+
+        Parameters:
+            - new_plan (str): The new plan selected.
+
+        Rules:
+            - Can only upgrade to a higher plan.
+            - 5% discount if subscribed for more than 12 months.
+
+        Output:
+            - A message stating the new active plan & total payment
+            - Updates current_plan -> new_plan
+            - Resets duration_plan -> 0
+        """
+        discount = 0.0
+        grading = {
+            key:index for index, (key, value) in enumerate(User.service_database.items()) if key != "Services"
+        }
+
+        # Ensure new_plan is available in service_database
+        if new_plan not in grading.keys():
+            raise TypeError("You can only upgrade to 'Standard Plan' or 'Premium Plan'.")
+
+        # Ensure the user upgrades and not downgrades plan by using grading
+        if grading[new_plan] <= grading[self.current_plan]:
+            raise TypeError(f"You are currently subscribed to {self.current_plan}. You may only upgrade to a higher-tier plan.")
+
+        if self.duration_plan > 12:
+            discount = 0.05
+        else:
+            discount = 0.0
+
+        cut_price = User.service_database[new_plan][-1] * discount
+        final_price = User.service_database[new_plan][-1] - (cut_price)
+
+        print(f"Thank you! Your {new_plan} plan is now active.")
+        print(" ")
+        if discount > 0.0:
+            print(f"You received a discount of Rp {cut_price: .2f}")
+            print(f"because you had been subscribed to {self.current_plan} for more than 12 months.")
+            print(" ")
+        print(f"The total amount you paid is Rp {final_price: .2f}")
+
+        self.current_plan = new_plan
+        self.duration_plan = 0
+
+
+class NewUser(User):
+
+    def __init__(self, username):
+        super().__init__(username)
+
+    def __valid_referral(self, data=None):
+        """
+        Private method to define valid_referral, used internally by pick_plan()
+
+        Purpose:
+            The variable 'data' (containing referral codes) is external,
+            which may pose a risk if compromised.
+
+            This method safely stores initial referral codes in an internal list.
+            If the format of 'data' is valid, this method appends it to the internal database.
+            Otherwise, it catches the exception and continues using only the initial list.
+        """
+        # Storage for initial referral codes
+        initial_referral = [
+            "shandy-2134", "cahya-abcd",
+            "ana-2f9g", "bagus-9f92"
+        ]
+
+        valid_referral = initial_referral.copy()
+
+        # Ensure 'data' type is dictionary and not empty
+        if isinstance(data, dict) and data:
+            try:
+                for record in data.values():
+                    if record[-1] not in valid_referral:
+                        valid_referral.append(record[-1])
+            except (AttributeError, ValueError):
+                print("Referral data error: Please ensure your external data variable is dictionary with 'Name' as key and values of a list formatted like ['Plan Name', duration, 'referral-code']")
+
+        # Returning 'initial_referral' in case error occured when appending 'valid_referral'
+        try:
+            return valid_referral
+        except Exception:
+            print("Error while processing referral list. Using initial default referral list.")
+            return initial_referral
+
+
+    def pick_plan(self, new_plan, referral_code="no ref", data=None):
+        """
+        Calculate the total cost of registering for a new plan.
+
+        Parameters:
+            - new_plan (str): Selected plan.
+            - referral_code (str): Optional referral code; default is "no ref".
+            - data (dict): Optional additional valid refferal code database; default is None.
+
+        Rules:
+            - 4% discount if referral code is valid.
+
+        Output:
+            - Message stating the activated plan and total payment.
+        """
+        discount = 0.0
+        valid_referral = self.__valid_referral(data=data)
+
+        # Ensure new_plan is available in service_database
+        if new_plan not in [key for key in User.service_database.keys() if key != "Services"]:
+            raise TypeError("Please choose between 'Basic Plan', 'Standard Plan', or 'Premium Plan'")
+
+        if referral_code == "no ref":
+            discount = 0.0
+
+        elif referral_code not in valid_referral:
+            raise NameError("Referral code not found. Leave it blank if you don’t have one.")
+        else:
+            print("Referral code accepted!")
+            discount = 0.04
+
+        cut_price = User.service_database[new_plan][-1] * discount
+        final_price = User.service_database[new_plan][-1] - cut_price
+
+        print(f"Thank you! Your {new_plan} plan is now active.")
+        print(" ")
+        if discount > 0.0:
+            print(f"You received a discount of Rp {cut_price: .2f}")
+            print("because you used a valid referral code.")
+            print(" ")
+        print(f"The total amount you paid is Rp {final_price: .2f}")
